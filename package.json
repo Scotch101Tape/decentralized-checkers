@@ -1,0 +1,9 @@
+{
+  "dependencies": {},
+  "scripts": {
+    "build": "waffle"
+  },
+  "devDependencies": {
+    "ethereum-waffle": "^3.4.0"
+  }
+}
