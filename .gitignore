@@ -1,2 +1,9 @@
 # Replit files
 .replit
+
+# Yarn
+node_modules
+
+# Waffle
+build
+cache
