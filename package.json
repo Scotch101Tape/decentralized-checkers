@@ -4,6 +4,8 @@
     "build": "waffle"
   },
   "devDependencies": {
-    "ethereum-waffle": "^3.4.0"
+    "chai": "^4.3.4",
+    "ethereum-waffle": "^3.4.0",
+    "mocha": "^9.1.4"
   }
 }
