@@ -1,11 +1,15 @@
 {
   "dependencies": {},
   "scripts": {
-    "build": "waffle"
+    "build": "waffle",
+    "test": "mocha test/contracts --experimental-json-modules"
   },
   "devDependencies": {
     "chai": "^4.3.4",
     "ethereum-waffle": "^3.4.0",
-    "mocha": "^9.1.4"
+    "mocha": "^9.1.4",
+    "node-ts": "^5.1.2",
+    "ts-node": "^10.4.0",
+    "typescript": "^4.5.4"
   }
 }
