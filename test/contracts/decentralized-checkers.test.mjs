@@ -1,4 +1,4 @@
-import {expect, use} from 'chai';
+import {assert, expect, use} from 'chai';
 import {Contract} from 'ethers';
 import {deployContract, MockProvider, solidity} from 'ethereum-waffle';
 import DecentralizedCheckers from "../../build/DecentralizedCheckers.json";
@@ -15,8 +15,10 @@ describe("decentralized-checkers", () => {
     decentralizedCheckers = await deployContract(deployer, DecentralizedCheckers, []);
   });
 
-  it("Create game", async () => {
-    expect(await decentralizedCheckers.joinPublicGame(player1).joinPublicGame(player2))
-      .to.emit(decentralizedCheckers, "gameStarted");
+  it("Create a game", async () => {
+    let player1Contract = await decentralizedCheckers.connect(player1);
+    let player2Contract = await decentralizedCheckers.connect(player2);
+    await player1Contract.joinPublicGame();
+    expect(await player2Contract.joinPublicGame()).to.emit(decentralizedCheckers, "gameStarted")
   });
 })

@@ -2,9 +2,10 @@
   "dependencies": {},
   "scripts": {
     "build": "waffle",
-    "test": "mocha test/contracts --experimental-json-modules"
+    "test": "mocha test/contracts --experimental-json-modules --timeout 0"
   },
   "devDependencies": {
+    "@openzeppelin/contracts": "^4.4.2",
     "chai": "^4.3.4",
     "ethereum-waffle": "^3.4.0",
     "mocha": "^9.1.4",
