@@ -10,6 +10,11 @@ enum Piece {
   WhiteKing
 }
 
+enum Team {
+  White,
+  Black
+}
+
 contract Checkers {
   // Events
   event newTurn(address player);
@@ -69,7 +74,8 @@ contract Checkers {
   // Moves a peice from (x1, y1) to (x2, y2)
   // Requires the move is valid
   function takeTurn(uint x1, uint y1, uint x2, uint y2) public lockable playersTurnOnly {
-    require(true, "Move is not valid"); // TODO update board and check if move is valid
+    require(moveIsValid(playersTeam(msg.sender), x1, y1, x2, y2), "Move is not valid");
+    // TODO: Add in board state change
     nextTurn();
   }
 
@@ -136,6 +142,35 @@ contract Checkers {
       return player2;
     } else {
       return player1;
+    }
+  }
+
+  function playersTeam(address player) private view returns(Team) {
+    if (player == player1) {
+      return Team.White;
+    } else {
+      return Team.Black;
+    }
+  }
+
+  function moveIsValid(Team team, uint x1, uint y1, uint x2, uint y2) private view returns(bool) {
+    // Kind of hard to read
+    return x1 >= 0 && x1 < 8 && y1 >= 0 && y1 < 8 && x2 >= 0 && x2 < 8 && y2 >= 0 && y2 < 8
+      && pieceInTeam(team, board[x1][y1])
+      && pieceInTeam(team, board[x2][y2])
+      && abs(int(x1) - int(x2)) == 2 && abs(int(y1) - int(y2)) == 2
+      && !pieceInTeam(team, board[(x1 + x2) / 2][(y1 + y2) / 2]);
+  }
+
+  function pieceInTeam(Team team, Piece piece) private pure returns(bool) {
+    return (team == Team.White && (piece == Piece.White || piece == Piece.WhiteKing)) || (team == Team.Black && (piece == Piece.Black || piece == Piece.BlackKing));
+  }
+
+  function abs(int x) private pure returns (uint) {
+    if (x >= 0) {
+      return uint(x);
+    } else {
+      return uint(-x);
     }
   }
 }

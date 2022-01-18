@@ -4,6 +4,5 @@ import Checkers from "../../build/Checkers.json";
 
 use(solidity);
 
-describe("Start a game", () => {
-  // TODO: Make tests
+describe("checkers", () => {
 });
