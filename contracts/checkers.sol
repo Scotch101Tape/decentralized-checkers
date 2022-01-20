@@ -37,6 +37,11 @@ contract Checkers {
   bool player1Draw;
   bool player2Draw;
 
+  // The number of pieces captured
+  // A player wins when they get all 12
+  uint player1Score;
+  uint player2Score;
+
   // Modifiers
   modifier lockable() {
     require(!locked);
@@ -66,6 +71,36 @@ contract Checkers {
     player1Draw = false;
     player2Draw = false;
 
+    /* Populate the board */
+
+    // I could do this with a for loop and some modulo, but I think its more correct to simply
+    // "place" each piece
+    board[1][0] = Piece.White;
+    board[3][0] = Piece.White;
+    board[5][0] = Piece.White;
+    board[7][0] = Piece.White;
+    board[1][2] = Piece.White;
+    board[3][2] = Piece.White;
+    board[5][2] = Piece.White;
+    board[7][2] = Piece.White;
+    board[0][1] = Piece.White;
+    board[2][1] = Piece.White;
+    board[4][1] = Piece.White;
+    board[6][1] = Piece.White;
+
+    board[1][6] = Piece.Black;
+    board[3][6] = Piece.Black;
+    board[5][6] = Piece.Black;
+    board[7][6] = Piece.Black;
+    board[0][7] = Piece.Black;
+    board[2][7] = Piece.Black;
+    board[4][7] = Piece.Black;
+    board[6][7] = Piece.Black;
+    board[0][5] = Piece.Black;
+    board[2][5] = Piece.Black;
+    board[4][5] = Piece.Black;
+    board[6][5] = Piece.Black;
+
     emit newTurn(currentTurn);
   }
 
@@ -74,9 +109,79 @@ contract Checkers {
   // Moves a peice from (x1, y1) to (x2, y2)
   // Requires the move is valid
   function takeTurn(uint x1, uint y1, uint x2, uint y2) public lockable playersTurnOnly {
-    require(moveIsValid(playersTeam(msg.sender), x1, y1, x2, y2), "Move is not valid");
-    // TODO: Add in board state change
+    Team team = playersTeam(msg.sender);
+
+    // Make sure its in bounds
+    require(x1 >= 0 && x1 < 8 && y1 >= 0 && y1 < 8 && x2 >= 0 && x2 < 8 && y2 >= 0 && y2 < 8);
+
+    Piece fromPiece = board[x1][y1];
+    Piece toPiece = board[x2][y2];
+
+    // Make sure the (x1, y1) points to a peice of the team
+    // and that (x2, y2) points to an empty space
+    require(!pieceInTeam(team, fromPiece) || toPiece != Piece.None);
+
+    // Find out if its a king only move (going negitive y when white; going positive y when black)
+    bool kingOnly = team == Team.White 
+      ? (y2 - y1) < 0
+      : (y2 - y1) > 0;
+    
+    // Make sure the piece is a king if kingOnly
+    if (kingOnly) {
+      require(fromPiece == Piece.BlackKing || fromPiece == Piece.WhiteKing);
+    }
+
+    // Make sure that the jump is either
+
+    // A simple move
+    // X   X
+    //   .  
+    // X   X
+
+    // or a jump
+    // X       X
+    //   O   O
+    //     .
+    //   O   O
+    // X       X
+
+    if (abs(int(x1) - int(x2)) == 1 && abs(int(y1) - int(y2)) == 1) {
+      // Its a simple move
+
+      // Update the board
+      board[x1][y1] = Piece.None;
+      board[x2][y2] = fromPiece;
+    } else if (abs(int(x1) - int(x2)) == 2 && abs(int(y1) - int(y2)) == 2) {
+      // Its a jump
+
+      // Make sure the piece being jumped is the others teams piece
+      Piece jumped = board[(x1 + x2) / 2][(y1 + y2) / 2];
+      require(pieceInTeam(otherTeam(team), jumped));
+
+      // Update the board
+      board[x1][y1] = Piece.None;
+      board[(x1 + x2) / 2][(y1 + y2) / 2] = Piece.None;
+      board[x2][y2] = fromPiece;
+
+      //Update the score
+      if (msg.sender == player1) {
+        player1Score += 1;
+      } else {
+        player2Score += 1;
+      }
+    } else {
+      revert();
+    }
+    
+    // Check for win
+    if (playersScore(msg.sender) >= 12) {
+      setWinner(msg.sender);
+    }
+
+    // Change whos turn it is
     nextTurn();
+
+    // TODO: implement double jump
   }
 
   // Allows a player to resign
@@ -154,16 +259,57 @@ contract Checkers {
   }
 
   function moveIsValid(Team team, uint x1, uint y1, uint x2, uint y2) private view returns(bool) {
+    // Make sure its in bounds
+    if (!(x1 >= 0 && x1 < 8 && y1 >= 0 && y1 < 8 && x2 >= 0 && x2 < 8 && y2 >= 0 && y2 < 8)) {
+      return false;
+    }
+
+    Piece fromPiece = board[x1][y1];
+    Piece toPiece = board[x2][y2];
+
+    // Make sure the (x1, y1) points to a peice of the team
+    // and that (x2, y2) points to an empty space
+    if (!pieceInTeam(team, fromPiece) || toPiece != Piece.None) {
+      return false;
+    }
+
+    // Find out if its a king only move (going negitive y when white; going positive y when black)
+    bool kingOnly = team == Team.White 
+      ? (y2 - y1) < 0
+      : (y2 - y1) > 0;
+    
+    // Make sure the piece is a king if kingOnly
+    if (kingOnly && (fromPiece != Piece.BlackKing || fromPiece != Piece.WhiteKing)) {
+      return false;
+    }
+
+
+
+
     // Kind of hard to read
     return x1 >= 0 && x1 < 8 && y1 >= 0 && y1 < 8 && x2 >= 0 && x2 < 8 && y2 >= 0 && y2 < 8
-      && pieceInTeam(team, board[x1][y1])
-      && pieceInTeam(team, board[x2][y2])
-      && abs(int(x1) - int(x2)) == 2 && abs(int(y1) - int(y2)) == 2
-      && !pieceInTeam(team, board[(x1 + x2) / 2][(y1 + y2) / 2]);
+      && pieceInTeam(team, board[x1][y1]) // The piece being moved is on the team
+      && board[x2][y2] == Piece.None // The place to move to is none
+      && (
+        (
+          abs(int(x1) - int(x2)) == 2 
+          && abs(int(y1) - int(y2)) == 2
+          && pieceInTeam(otherTeam(team), board[(x1 + x2) / 2][(y1 + y2) / 2])
+        )
+        || false
+      );
   }
 
   function pieceInTeam(Team team, Piece piece) private pure returns(bool) {
     return (team == Team.White && (piece == Piece.White || piece == Piece.WhiteKing)) || (team == Team.Black && (piece == Piece.Black || piece == Piece.BlackKing));
+  }
+
+  function otherTeam(Team team) private pure returns(Team) {
+    if (team == Team.Black) {
+      return Team.White;
+    } else {
+      return Team.Black;
+    }
   }
 
   function abs(int x) private pure returns (uint) {
@@ -171,6 +317,14 @@ contract Checkers {
       return uint(x);
     } else {
       return uint(-x);
+    }
+  }
+
+  function playersScore(address player) private view returns (uint) {
+    if (player == player1) {
+      return player1Score;
+    } else {
+      return player2Score;
     }
   }
 }
