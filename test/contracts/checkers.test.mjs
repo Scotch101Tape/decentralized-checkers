@@ -15,7 +15,7 @@ describe("checkers", () => {
     checkers = await deployContract(deployer, Checkers, [player1.address, player2.address]);
   });
 
-  /*it("Creates the board correctly", async () => {
+  it("Creates the board correctly", async () => {
     expect(await checkers.getBoard()).to.eql(
       [
         [0, 2, 0, 0, 0, 1, 0, 1],
@@ -51,20 +51,17 @@ describe("checkers", () => {
   });
 
   it("Emits newTurn", async () => {
-    //expect(await checkers.connect(player1).takeTurn(1, 2, 0, 3)).to.emit("newTurn");
+    expect(await checkers.connect(player1).takeTurn(1, 2, 0, 3, {gasLimit: 999999})).to.emit(checkers, "newTurn");
   });
 
   it("Emits drawProposal", async () => {
-
-  });
-
-  it("Emits gameWon", async () => {
-
+    expect(await checkers.connect(player2).proposeDraw()).to.emit(checkers, "drawProposal");
   });
 
   it("Emits drawCanceled", async () => {
-
-  });*/
+    await checkers.connect(player1).proposeDraw()
+    expect(await checkers.connect(player1).cancelDraw()).to.emit(checkers, "drawCanceled");
+  });
 
   it("Runs a few moves", async () => {
     let p1 = checkers.connect(player1);

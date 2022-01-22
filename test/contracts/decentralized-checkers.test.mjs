@@ -15,10 +15,10 @@ describe("decentralized-checkers", () => {
     decentralizedCheckers = await deployContract(deployer, DecentralizedCheckers, []);
   });
 
-  /*it("Create a game", async () => {
+  it("Create a game", async () => {
     let player1Contract = await decentralizedCheckers.connect(player1);
     let player2Contract = await decentralizedCheckers.connect(player2);
     await player1Contract.joinPublicGame();
     expect(await player2Contract.joinPublicGame()).to.emit(decentralizedCheckers, "gameStarted")
-  });*/
+  });
 })
