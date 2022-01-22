@@ -44,17 +44,17 @@ contract Checkers {
 
   // Modifiers
   modifier lockable() {
-    require(!locked);
+    require(!locked, "Game is locked");
     _;
   }
 
   modifier playerOnly() {
-    require(msg.sender == player1 || msg.sender == player2);
+    require(msg.sender == player1 || msg.sender == player2, "Not a player");
     _;
   }
   
   modifier playersTurnOnly() {
-    require(msg.sender == currentTurn);
+    require(msg.sender == currentTurn, "Not players turn");
     _;
   }
 
@@ -62,6 +62,8 @@ contract Checkers {
 
   // Constructs the game with the two players
   constructor (address _player1, address _player2) {
+    winner = address(0);
+
     player1 = _player1;
     player2 = _player2;
 
@@ -112,23 +114,23 @@ contract Checkers {
     Team team = playersTeam(msg.sender);
 
     // Make sure its in bounds
-    require(x1 >= 0 && x1 < 8 && y1 >= 0 && y1 < 8 && x2 >= 0 && x2 < 8 && y2 >= 0 && y2 < 8);
+    require(x1 >= 0 && x1 < 8 && y1 >= 0 && y1 < 8 && x2 >= 0 && x2 < 8 && y2 >= 0 && y2 < 8, "Out of bounds");
 
     Piece fromPiece = board[x1][y1];
     Piece toPiece = board[x2][y2];
 
     // Make sure the (x1, y1) points to a peice of the team
     // and that (x2, y2) points to an empty space
-    require(!pieceInTeam(team, fromPiece) || toPiece != Piece.None);
+    require(pieceInTeam(team, fromPiece) && toPiece == Piece.None, "Piece types incorrect");
 
     // Find out if its a king only move (going negitive y when white; going positive y when black)
     bool kingOnly = team == Team.White 
-      ? (y2 - y1) < 0
-      : (y2 - y1) > 0;
+      ? (int(y2) - int(y1)) < 0
+      : (int(y2) - int(y1)) > 0;
     
     // Make sure the piece is a king if kingOnly
     if (kingOnly) {
-      require(fromPiece == Piece.BlackKing || fromPiece == Piece.WhiteKing);
+      require(fromPiece == Piece.BlackKing || fromPiece == Piece.WhiteKing, "Piece is not King");
     }
 
     // Make sure that the jump is either
@@ -156,7 +158,7 @@ contract Checkers {
 
       // Make sure the piece being jumped is the others teams piece
       Piece jumped = board[(x1 + x2) / 2][(y1 + y2) / 2];
-      require(pieceInTeam(otherTeam(team), jumped));
+      require(pieceInTeam(otherTeam(team), jumped), "Trying to jump an invalid piece");
 
       // Update the board
       board[x1][y1] = Piece.None;
@@ -170,12 +172,23 @@ contract Checkers {
         player2Score += 1;
       }
     } else {
-      revert();
+      revert("Move is not correct");
     }
     
     // Check for win
     if (playersScore(msg.sender) >= 12) {
       setWinner(msg.sender);
+    }
+
+    // Add kings
+    if (fromPiece == Piece.White) {
+      if (y2 == 7) {
+        board[x2][y2] = Piece.WhiteKing;
+      }
+    } else if (fromPiece == Piece.Black) {
+      if (y2 == 0) {
+        board[x2][y2] = Piece.BlackKing;
+      }
     }
 
     // Change whos turn it is
@@ -192,7 +205,6 @@ contract Checkers {
   // Gets the address that won
   // Requires game is locked
   function getWinner() public view returns (address) {
-    require(locked, "Winner is undecided");
     return winner;
   }
 
@@ -222,6 +234,15 @@ contract Checkers {
     }
 
     emit drawCanceled(msg.sender);
+  }
+
+  // Get the board
+  function getBoard() public view returns(Piece[8][8] memory) {
+    return board;
+  }
+
+  function isLocked() public view returns(bool) {
+    return locked;
   }
 
   // Private
@@ -256,48 +277,6 @@ contract Checkers {
     } else {
       return Team.Black;
     }
-  }
-
-  function moveIsValid(Team team, uint x1, uint y1, uint x2, uint y2) private view returns(bool) {
-    // Make sure its in bounds
-    if (!(x1 >= 0 && x1 < 8 && y1 >= 0 && y1 < 8 && x2 >= 0 && x2 < 8 && y2 >= 0 && y2 < 8)) {
-      return false;
-    }
-
-    Piece fromPiece = board[x1][y1];
-    Piece toPiece = board[x2][y2];
-
-    // Make sure the (x1, y1) points to a peice of the team
-    // and that (x2, y2) points to an empty space
-    if (!pieceInTeam(team, fromPiece) || toPiece != Piece.None) {
-      return false;
-    }
-
-    // Find out if its a king only move (going negitive y when white; going positive y when black)
-    bool kingOnly = team == Team.White 
-      ? (y2 - y1) < 0
-      : (y2 - y1) > 0;
-    
-    // Make sure the piece is a king if kingOnly
-    if (kingOnly && (fromPiece != Piece.BlackKing || fromPiece != Piece.WhiteKing)) {
-      return false;
-    }
-
-
-
-
-    // Kind of hard to read
-    return x1 >= 0 && x1 < 8 && y1 >= 0 && y1 < 8 && x2 >= 0 && x2 < 8 && y2 >= 0 && y2 < 8
-      && pieceInTeam(team, board[x1][y1]) // The piece being moved is on the team
-      && board[x2][y2] == Piece.None // The place to move to is none
-      && (
-        (
-          abs(int(x1) - int(x2)) == 2 
-          && abs(int(y1) - int(y2)) == 2
-          && pieceInTeam(otherTeam(team), board[(x1 + x2) / 2][(y1 + y2) / 2])
-        )
-        || false
-      );
   }
 
   function pieceInTeam(Team team, Piece piece) private pure returns(bool) {
