@@ -11,14 +11,12 @@ window.onload = async () => {
   provider = new ethers.providers.StaticJsonRpcProvider(providerURL, {
     chainId: 1287,
     name: "moonbase-alphanet"
-  });
-  const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-  const account = accounts[0];
-  let wallet = new Wallet(account, provider);
-  let walletAddress = await wallet.address;
+  });  
+  signer = (new ethers.providers.Web3Provider(window.ethereum)).getSigner()
+  let signerAddress = await signer.getAddress();
 
   // Connect to the contract
-  decentralizedCheckersContract = new Contract(DECENTRALIZED_CHECKERS_ADDRESS, DecentralizedCheckersAbi, wallet);
+  decentralizedCheckersContract = new Contract(DECENTRALIZED_CHECKERS_ADDRESS, DecentralizedCheckersAbi, signer);
 
   // Listen to events
   decentralizedCheckersContract.on("gameStarted", async (game, player1, player2) => {
@@ -26,15 +24,31 @@ window.onload = async () => {
       decentralizedCheckersContract.removeAllListeners();
 
       let checkersContract = new Contract(game, CheckersAbi, signer);
-      document.getElementById("join-game-section").remove()
+      document.getElementById("join-game-section").remove();
 
-      (new CheckersGame).play();
+      (new CheckersGame(checkersContract, signerAddress, player1 == signerAddress)).play();
     }
   });
 }
 
 document.getElementById("join-public-game-button").onclick = async () => {
-  await decentralizedCheckersContract.joinPublicGame({
-    gasLimit: 99999
-  });
+  await decentralizedCheckersContract.joinPublicGame();
 }
+
+/* Tests */
+let checkerBoardImage
+window.preload = function() {
+  checkerBoardImage = loadImage("assets/checker-board.png")
+}
+
+window.setup = function() {
+  createCanvas(400, 400);
+  image(checkerBoardImage, 0, 0, 400, 400);
+}
+
+window.mouseClicked = function() {
+  rect(mouseX - (mouseX % 50), mouseY - (mouseY % 50), 50, 50)
+}
+
+
+
