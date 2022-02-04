@@ -1,4 +1,4 @@
-.centered {
-  margin: 0, auto;
-  background: red;
+:root {
+  --black-square: #779556;
+  --white-square: #ebecd0;
 }
