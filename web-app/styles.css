@@ -1,5 +1,18 @@
 :root {
   --black-square: #779556;
   --white-square: #ebecd0;
-  --highlightedSquare: #baca2b;
+  --highlighted-square: #baca2b;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(8, 50px);
+  grid-template-rows: repeat(8, 50px);
+  border-style: solid;
+  border-width: 4px;
+  width: 401px;
+  height: 401px;
+  border-radius: 5px;
+  padding: 2px;
+  background: black;
 }

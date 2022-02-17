@@ -1,12 +1,8 @@
 import { SimpleMove, JumpMove } from "./move"
+import { PieceEnum } from "./contract-api"
 
-export const PieceEnum = {
-  None: 0,
-  Black: 1,
-  White: 2,
-  BlackKing: 3,
-  WhiteKing: 4
-}
+// Re-export of PieceEnum
+export const PieceEnum = PieceEnum
 
 export const BoardTypeEnum = {
   White: 0,
