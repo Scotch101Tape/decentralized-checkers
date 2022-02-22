@@ -2,6 +2,7 @@ import {expect, use} from 'chai';
 import {deployContract, MockProvider, solidity} from 'ethereum-waffle';
 import {BigNumber} from "ethers"
 import Checkers from "../../build/Checkers.json";
+import { Piece, Winner, Player } from "../../contracts/checkers.constants.mjs"
 
 use(solidity);
 
@@ -16,7 +17,7 @@ describe("checkers", () => {
   });
 
   it("Creates the board correctly", async () => {
-    expect(await checkers.getBoard()).to.eql(
+    expect((await checkers.getStatus()).board).to.eql(
       [
         [0, 2, 0, 0, 0, 1, 0, 1],
         [2, 0, 2, 0, 0, 0, 1, 0],
@@ -31,36 +32,46 @@ describe("checkers", () => {
   });
 
   it("Allows resignation", async () => {
-    expect(await checkers.getWinner()).to.equal("0x0000000000000000000000000000000000000000");
+    expect((await checkers.getStatus()).won).to.equal(false);
     await checkers.connect(player1).resign();
-    expect(await checkers.getWinner()).to.equal(player2.address);
+    expect((await checkers.getStatus()).winner).to.equal(Winner.White);
   });
 
   it("Allows draw", async () => {
     await checkers.connect(player1).proposeDraw();
-    expect(await checkers.isLocked()).to.equal(false);
+    expect((await checkers.getStatus()).won).to.equal(false);
     await checkers.connect(player2).proposeDraw();
-    expect(await checkers.isLocked()).to.equal(true);
+    expect((await checkers.getStatus()).won).to.equal(true);
+    expect((await checkers.getStatus()).winner).to.equal(Winner.Tie);
   });
 
   it("Allows take back of draw", async () => {
     await checkers.connect(player1).proposeDraw();
     await checkers.connect(player1).cancelDraw();
     await checkers.connect(player2).proposeDraw();
-    expect(await checkers.isLocked()).to.equal(false);
+    expect((await checkers.getStatus()).won).to.equal(false);
   });
 
-  it("Emits newTurn", async () => {
-    expect(await checkers.connect(player1).takeTurn(1, 2, 0, 3, {gasLimit: 999999})).to.emit(checkers, "newTurn");
+  it("Emits OnMove", async () => {
+    expect(await checkers.connect(player1).doMove({
+      start: {
+        x: 1,
+        y: 2
+      },
+      end: {
+        x: 0,
+        y: 3
+      }
+    })).to.emit(checkers, "OnMove");
   });
 
-  it("Emits drawProposal", async () => {
-    expect(await checkers.connect(player2).proposeDraw()).to.emit(checkers, "drawProposal");
+  it("Emits OnDrawProposal", async () => {
+    expect(await checkers.connect(player2).proposeDraw()).to.emit(checkers, "OnDrawProposal");
   });
 
-  it("Emits drawCanceled", async () => {
+  it("Emits OnDrawCancel", async () => {
     await checkers.connect(player1).proposeDraw()
-    expect(await checkers.connect(player1).cancelDraw()).to.emit(checkers, "drawCanceled");
+    expect(await checkers.connect(player1).cancelDraw()).to.emit(checkers, "OnDrawCancel");
   });
 
   it("Runs a few moves", async () => {
@@ -68,14 +79,32 @@ describe("checkers", () => {
     let p2 = checkers.connect(player2);
 
     let p1Turn = async (x1, y1, x2, y2) => {
-      await p1.takeTurn(x1, y1, x2, y2, {
-        gasLimit: 999999
+      await p1.doMove({
+        start: {
+          x: x1,
+          y: y1
+        },
+        end: {
+          x: x2,
+          y: y2
+        }
+      }, {
+        gasLimit: 99999
       });
     }
 
     let p2Turn = async (x1, y1, x2, y2) => {
-      await p2.takeTurn(x1, y1, x2, y2, {
-        gasLimit: 999999
+      await p2.doMove({
+        start: {
+          x: x1,
+          y: y1
+        },
+        end: {
+          x: x2,
+          y: y2
+        }
+      }, {
+        gasLimit: 99999
       });
     }
 
@@ -83,16 +112,6 @@ describe("checkers", () => {
     await p2Turn(2, 5, 3, 4);
     await p1Turn(3, 2, 2, 3);
     await p2Turn(3, 4, 1, 2);
-    expect(await checkers.getBoard()).to.eql([
-      [0, 2, 0, 2, 0, 1, 0, 1],
-      [2, 0, 1, 0, 0, 0, 1, 0],
-      [0, 2, 0, 0, 0, 0, 0, 1],
-      [2, 0, 0, 0, 0, 0, 1, 0],
-      [0, 2, 0, 0, 0, 1, 0, 1],
-      [2, 0, 2, 0, 0, 0, 1, 0],
-      [0, 2, 0, 0, 0, 1, 0, 1],
-      [2, 0, 2, 0, 0, 0, 1, 0]
-    ]);
     await p1Turn(0, 3, 1, 4);
     await p2Turn(6, 5, 5, 4);
     await p1Turn(4, 1, 3, 2);
@@ -103,7 +122,7 @@ describe("checkers", () => {
     await p2Turn(6, 3, 5, 2);
     await p1Turn(1, 4, 3, 6);
     await p2Turn(5, 2, 3, 0);
-    expect(await checkers.getBoard()).to.eql([
+    expect((await checkers.getStatus()).board).to.eql([
       [0, 2, 0, 0, 0, 1, 0, 1],
       [2, 0, 1, 0, 0, 0, 1, 0],
       [0, 2, 0, 0, 0, 0, 0, 1],
