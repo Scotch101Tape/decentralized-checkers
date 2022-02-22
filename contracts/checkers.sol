@@ -2,135 +2,158 @@
 
 pragma solidity ^0.8.0;
 
-enum Piece {
-  None,
-  Black,
-  White,
-  BlackKing,
-  WhiteKing
-}
-
-enum Team {
-  White,
-  Black
-}
-
 contract Checkers {
+  // Enums 
+  enum Piece {
+    None,
+    Black,
+    White,
+    BlackKing,
+    WhiteKing
+  }
+
+  enum Winner {
+    Tie,
+    White,
+    Black
+  }
+
+  enum Player {
+    White,
+    Black
+  }
+
+  // Structs
+  struct BoardPoint {
+    uint x;
+    uint y;
+  }
+
+  struct Move {
+    BoardPoint start;
+    BoardPoint end;
+  }
+
+  struct Status {
+    bool won;
+    Winner winner;
+
+    Player turnPlayer;
+
+    Piece[8][8] board;
+
+    // Whether each player wants a draw
+    bool whiteDraw;
+    bool blackDraw;
+
+    // The number of pieces captured
+    // A player wins when they get all 12
+    uint whiteScore;
+    uint blackScore;
+  }
+
   // Events
-  event newTurn(address player);
-  event gameWon(address winner);
-  event drawProposal(address from);
-  event drawCanceled(address from);
+  event OnMove(Move);
+  event OnWinner(Winner);
+  event OnDrawProposal(Player);
+  event OnDrawCancel(Player);
 
-  // Storage
-  address player1;
-  address player2;
+  // State Variables
+  address whitePlayer;
+  address blackPlayer;
 
-  bool locked;
-  address winner;
-
-  address currentTurn;
-
-  Piece[8][8] board;
-
-  // Whether each player wants a draw
-  bool player1Draw;
-  bool player2Draw;
-
-  // The number of pieces captured
-  // A player wins when they get all 12
-  uint player1Score;
-  uint player2Score;
+  Status status;
 
   // Modifiers
-  modifier lockable() {
-    require(!locked, "Game is locked");
+  modifier afterWon() {
+    require(status.won, "Game is not won");
+    _;
+  }
+
+  modifier beforeWon() {
+    require(!status.won, "Game is won");
     _;
   }
 
   modifier playerOnly() {
-    require(msg.sender == player1 || msg.sender == player2, "Not a player");
+    require(msg.sender == whitePlayer || msg.sender == blackPlayer, "Not a player");
     _;
   }
-  
-  modifier playersTurnOnly() {
-    require(msg.sender == currentTurn, "Not players turn");
+
+  modifier onTurnOnly() {
+    require(msg.sender == addressFromPlayer(status.turnPlayer), "Not players turn");
     _;
   }
 
   // Constructor
 
   // Constructs the game with the two players
-  constructor (address _player1, address _player2) {
-    winner = address(0);
+  constructor (address _whitePlayer, address _blackPlayer) {
+    whitePlayer = _whitePlayer;
+    blackPlayer = _blackPlayer;
 
-    player1 = _player1;
-    player2 = _player2;
+    status.won = false;
+    status.turnPlayer = Player.White;
 
-    locked = false;
-    currentTurn = player1;
+    status.whiteDraw = false;
+    status.blackDraw = false;
 
-    player1Draw = false;
-    player2Draw = false;
+    status.whiteScore = 12;
+    status.blackScore = 12;
 
     /* Populate the board */
 
     // I could do this with a for loop and some modulo, but I think its more correct to simply
     // "place" each piece
-    board[1][0] = Piece.White;
-    board[3][0] = Piece.White;
-    board[5][0] = Piece.White;
-    board[7][0] = Piece.White;
-    board[1][2] = Piece.White;
-    board[3][2] = Piece.White;
-    board[5][2] = Piece.White;
-    board[7][2] = Piece.White;
-    board[0][1] = Piece.White;
-    board[2][1] = Piece.White;
-    board[4][1] = Piece.White;
-    board[6][1] = Piece.White;
+    status.board[1][0] = Piece.White;
+    status.board[3][0] = Piece.White;
+    status.board[5][0] = Piece.White;
+    status.board[7][0] = Piece.White;
+    status.board[1][2] = Piece.White;
+    status.board[3][2] = Piece.White;
+    status.board[5][2] = Piece.White;
+    status.board[7][2] = Piece.White;
+    status.board[0][1] = Piece.White;
+    status.board[2][1] = Piece.White;
+    status.board[4][1] = Piece.White;
+    status.board[6][1] = Piece.White;
 
-    board[1][6] = Piece.Black;
-    board[3][6] = Piece.Black;
-    board[5][6] = Piece.Black;
-    board[7][6] = Piece.Black;
-    board[0][7] = Piece.Black;
-    board[2][7] = Piece.Black;
-    board[4][7] = Piece.Black;
-    board[6][7] = Piece.Black;
-    board[0][5] = Piece.Black;
-    board[2][5] = Piece.Black;
-    board[4][5] = Piece.Black;
-    board[6][5] = Piece.Black;
-
-    emit newTurn(currentTurn);
+    status.board[1][6] = Piece.Black;
+    status.board[3][6] = Piece.Black;
+    status.board[5][6] = Piece.Black;
+    status.board[7][6] = Piece.Black;
+    status.board[0][7] = Piece.Black;
+    status.board[2][7] = Piece.Black;
+    status.board[4][7] = Piece.Black;
+    status.board[6][7] = Piece.Black;
+    status.board[0][5] = Piece.Black;
+    status.board[2][5] = Piece.Black;
+    status.board[4][5] = Piece.Black;
+    status.board[6][5] = Piece.Black;
   }
 
   // Public
 
   // Moves a peice from (x1, y1) to (x2, y2)
   // Requires the move is valid
-  function takeTurn(uint x1, uint y1, uint x2, uint y2) public lockable playersTurnOnly {
-    Team team = playersTeam(msg.sender);
-
-    // Make sure its in bounds
-    require(x1 >= 0 && x1 < 8 && y1 >= 0 && y1 < 8 && x2 >= 0 && x2 < 8 && y2 >= 0 && y2 < 8, "Out of bounds");
-
-    Piece fromPiece = board[x1][y1];
-    Piece toPiece = board[x2][y2];
+  function doMove(Move calldata move) public beforeWon onTurnOnly {
+    // Get the pieces at the points
+    // This will check the points are in range
+    Piece startPiece = pieceAtBoardPoint(move.start);
+    Piece endPiece = pieceAtBoardPoint(move.end);
 
     // Make sure the (x1, y1) points to a peice of the team
     // and that (x2, y2) points to an empty space
-    require(pieceInTeam(team, fromPiece) && toPiece == Piece.None, "Piece types incorrect");
+    require(isPlayersPiece(status.turnPlayer, startPiece) && endPiece == Piece.None, "Piece types incorrect");
 
     // Find out if its a king only move (going negitive y when white; going positive y when black)
-    bool kingOnly = team == Team.White 
-      ? (int(y2) - int(y1)) < 0
-      : (int(y2) - int(y1)) > 0;
+    bool kingOnly = status.turnPlayer == Player.White 
+      ? (int(move.end.y) - int(move.start.y)) < 0
+      : (int(move.end.y) - int(move.start.y)) > 0;
     
     // Make sure the piece is a king if kingOnly
     if (kingOnly) {
-      require(fromPiece == Piece.BlackKing || fromPiece == Piece.WhiteKing, "Piece is not King");
+      require(startPiece == Piece.BlackKing || startPiece == Piece.WhiteKing, "Piece is not King");
     }
 
     // Make sure that the jump is either
@@ -147,163 +170,156 @@ contract Checkers {
     //   O   O
     // X       X
 
-    if (abs(int(x1) - int(x2)) == 1 && abs(int(y1) - int(y2)) == 1) {
+    if (abs(int(move.start.x) - int(move.end.x)) == 1 && abs(int(move.start.y) - int(move.end.y)) == 1) {
       // Its a simple move
 
       // Update the board
-      board[x1][y1] = Piece.None;
-      board[x2][y2] = fromPiece;
-    } else if (abs(int(x1) - int(x2)) == 2 && abs(int(y1) - int(y2)) == 2) {
+      status.board[move.start.x][move.start.y] = Piece.None;
+      status.board[move.end.x][move.end.y] = startPiece;
+    } else if (abs(int(move.start.x) - int(move.end.x)) == 2 && abs(int(move.start.y) - int(move.end.y)) == 2) {
       // Its a jump
 
       // Make sure the piece being jumped is the others teams piece
-      Piece jumped = board[(x1 + x2) / 2][(y1 + y2) / 2];
-      require(pieceInTeam(otherTeam(team), jumped), "Trying to jump an invalid piece");
+      Piece jump = status.board[(move.start.x + move.end.x) / 2][(move.start.y + move.end.y) / 2];
+      require(isPlayersPiece(otherPlayer(status.turnPlayer), jump), "Trying to jump an invalid piece");
 
       // Update the board
-      board[x1][y1] = Piece.None;
-      board[(x1 + x2) / 2][(y1 + y2) / 2] = Piece.None;
-      board[x2][y2] = fromPiece;
+      status.board[move.start.x][move.start.y] = Piece.None;
+      status.board[(move.start.x + move.end.x) / 2][(move.start.y + move.end.y) / 2] = Piece.None;
+      status.board[move.end.x][move.end.y] = startPiece;
 
       //Update the score
-      if (msg.sender == player1) {
-        player1Score += 1;
+      if (status.turnPlayer == Player.White) {
+        status.blackScore -= 1;
+        if (status.blackScore == 0) {
+          setWinner(Winner.White);
+        } 
       } else {
-        player2Score += 1;
+        status.whiteScore -= 1;
+        if (status.whiteScore == 0) {
+          setWinner(Winner.Black);
+        }
       }
     } else {
       revert("Move is not correct");
     }
-    
-    // Check for win
-    if (playersScore(msg.sender) >= 12) {
-      setWinner(msg.sender);
-    }
 
     // Add kings
-    if (fromPiece == Piece.White) {
-      if (y2 == 7) {
-        board[x2][y2] = Piece.WhiteKing;
-      }
-    } else if (fromPiece == Piece.Black) {
-      if (y2 == 0) {
-        board[x2][y2] = Piece.BlackKing;
-      }
+    if (startPiece == Piece.White && move.end.y == 7) {
+      status.board[move.end.x][move.end.y] = Piece.WhiteKing;
+    } else if (startPiece == Piece.Black && move.end.y == 0) {
+      status.board[move.end.x][move.end.y] = Piece.BlackKing;
     }
 
-    // Change whos turn it is
-    nextTurn();
+    status.turnPlayer = otherPlayer(status.turnPlayer);
 
-    // TODO: implement double jump
+    emit OnMove(move);
   }
 
   // Allows a player to resign
-  function resign() public lockable playerOnly {
-    setWinner(otherPlayer(msg.sender));
-  }
-
-  // Gets the address that won
-  // Requires game is locked
-  function getWinner() public view returns (address) {
-    return winner;
+  function resign() public beforeWon playerOnly {
+    setWinner(msg.sender == whitePlayer ? Winner.White : Winner.Black);
   }
 
   // Propose a draw
   // If both parties propose a draw, the game is locked and over
-  function proposeDraw() public playerOnly lockable {
-    if (msg.sender == player1) {
-      player1Draw = true;
+  function proposeDraw() public playerOnly beforeWon {
+    Player player = playerFromAddress(msg.sender);
+
+    if (player == Player.White) {
+      status.whiteDraw = true;
     } else {
-      player2Draw = true;
+      status.blackDraw = true;
     }
 
     // Check if both have proprosed draws
-    if (player1Draw && player2Draw) {
-      setWinner(address(0x0));
+    if (status.whiteDraw && status.blackDraw) {
+      setWinner(Winner.Tie);
     }
 
-    emit drawProposal(msg.sender);
+    emit OnDrawProposal(player);
   }
 
   // Cancel a draw
-  function cancelDraw() public playerOnly lockable {
-    if (msg.sender == player1) {
-      player1Draw = false;
+  function cancelDraw() public playerOnly beforeWon {
+    Player player = playerFromAddress(msg.sender);
+
+    if (player == Player.White) {
+      status.whiteDraw = false;
     } else {
-      player2Draw = false;
+      status.blackDraw = false;
     }
 
-    emit drawCanceled(msg.sender);
+    emit OnDrawCancel(player);
   }
 
-  // Get the board
-  function getBoard() public view returns(Piece[8][8] memory) {
-    return board;
-  }
-
-  function isLocked() public view returns(bool) {
-    return locked;
+  function getStatus() public view returns (Status memory) {
+    return status;
   }
 
   // Private
 
   // Sets the winner and locks the contract
-  function setWinner(address player) private {
-    locked = true;
-    winner = player;
+  function setWinner(Winner _winner) private {
+    status.won = true;
+    status.winner = _winner;
 
-    emit gameWon(winner);
-  }
-
-  // Moves the contract to the next turn
-  function nextTurn() private {
-    currentTurn = otherPlayer(currentTurn);
-
-    emit newTurn(currentTurn);
+    emit OnWinner(status.winner);
   }
 
   // get the other player from the player you have
-  function otherPlayer(address player) private view returns(address) {
-    if (player == player1) {
-      return player2;
+  function otherPlayer(Player player) private pure returns (Player) {
+    return player == Player.White ? Player.Black : Player.White;
+  }
+
+  function isPlayersPiece(Player player, Piece piece) private pure returns (bool) {
+    if (piece == Piece.None) {
+      return false;
+    }
+
+    if (player == Player.White) {
+      return piece == Piece.White || piece == Piece.WhiteKing;
     } else {
-      return player1;
+      return piece == Piece.Black || piece == Piece.BlackKing;
     }
   }
 
-  function playersTeam(address player) private view returns(Team) {
-    if (player == player1) {
-      return Team.White;
+  function pieceAtBoardPoint(BoardPoint calldata boardPoint) private view returns (Piece) {
+    require(isValidBoardPoint(boardPoint), "BoardPoint out of range");
+    return status.board[boardPoint.x][boardPoint.y];
+  }
+
+  function isValidBoardPoint(BoardPoint calldata boardPoint) private pure returns (bool) {
+    return (boardPoint.x >= 0
+      && boardPoint.x < 8
+      && boardPoint.y >= 0
+      && boardPoint.y < 8
+    );
+  }
+
+  function addressFromPlayer(Player player) private view returns (address) {
+    if (player == Player.White) {
+      return whitePlayer;
     } else {
-      return Team.Black;
+      return blackPlayer;
     }
   }
 
-  function pieceInTeam(Team team, Piece piece) private pure returns(bool) {
-    return (team == Team.White && (piece == Piece.White || piece == Piece.WhiteKing)) || (team == Team.Black && (piece == Piece.Black || piece == Piece.BlackKing));
-  }
-
-  function otherTeam(Team team) private pure returns(Team) {
-    if (team == Team.Black) {
-      return Team.White;
+  function playerFromAddress(address playerAddress) private view returns (Player) {
+    if (playerAddress == whitePlayer) {
+      return Player.White;
+    } else if (playerAddress == blackPlayer) {
+      return Player.Black;
     } else {
-      return Team.Black;
+      revert("Address not player");
     }
   }
+}
 
-  function abs(int x) private pure returns (uint) {
-    if (x >= 0) {
-      return uint(x);
-    } else {
-      return uint(-x);
-    }
-  }
-
-  function playersScore(address player) private view returns (uint) {
-    if (player == player1) {
-      return player1Score;
-    } else {
-      return player2Score;
-    }
+function abs(int x) pure returns (uint) {
+  if (x >= 0) {
+    return uint(x);
+  } else {
+    return uint(-x);
   }
 }
