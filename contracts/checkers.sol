@@ -2,6 +2,11 @@
 
 pragma solidity ^0.8.0;
 
+enum Player {
+  White,
+  Black
+}
+
 contract Checkers {
   // Enums 
   enum Piece {
@@ -14,11 +19,6 @@ contract Checkers {
 
   enum Winner {
     Tie,
-    White,
-    Black
-  }
-
-  enum Player {
     White,
     Black
   }

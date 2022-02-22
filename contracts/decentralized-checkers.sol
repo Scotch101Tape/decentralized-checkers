@@ -6,27 +6,36 @@ import "./checkers.sol";
 
 contract DecentralizedCheckers {
   // Events
-  event gameStarted(address game, address player1, address player2);
+  event OnGameStart(address game, address whitePlayer, address blackPlayer);
 
-  // Variables
-  bool someoneWaiting;
-  address someone;
+  // State
+  bool waiting;
+  address waiter;
+
+  // Modifiers
+  modifier onlyWaiter() {
+    require(msg.sender == waiter && waiting);
+    _;
+  }
 
   // Connstructor
   constructor () {
-    someoneWaiting = false;  
+    waiting = false;  
   }
 
   // Public
-  function joinPublicGame() public {
-    if (someoneWaiting) {
-      Checkers game = new Checkers(someone, msg.sender);
-      emit gameStarted(address(game), someone, msg.sender);
+  function joinGame() public {
+    if (waiting) {
+      Checkers game = new Checkers(waiter, msg.sender);
+      emit OnGameStart(address(game), waiter, msg.sender);
     } else {
-      someoneWaiting = true;
-      someone = msg.sender;
+      waiting = true;
+      waiter = msg.sender;
     }
   }
 
-  // Private
+  function cancelJoinGame() public onlyWaiter {
+    waiting = false;
+    waiter = address(0);
+  }
 }
