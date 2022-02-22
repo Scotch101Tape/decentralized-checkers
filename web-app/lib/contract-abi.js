@@ -12,6 +12,9 @@ export const DECENTRALIZED_CHECKERS_ABI = [
   "getStatus() public view returns ((bool won, uint winner, uint turnPlayer, uint[8][8] board, bool whiteDraw, bool blackDraw, uint whiteScore, uint blackScore))"
 ]
 
-export const CHECKERS_ABI = {
+export const CHECKERS_ABI = [
+  "event OnGameStart(address, address, address)",
   
-}
+  "function joinGame() public",
+  "function cancelJoinGame() public"
+]
