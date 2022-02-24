@@ -12,7 +12,6 @@
     "lint-web-app": "next lint ./web-app"
   },
   "devDependencies": {
-    "@openzeppelin/contracts": "^4.4.2",
     "chai": "^4.3.4",
     "ethereum-waffle": "^3.4.0",
     "mocha": "^9.1.4",
